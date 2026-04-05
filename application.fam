@@ -1,0 +1,20 @@
+App(
+    appid="tagtinker",
+    name="TagTinker",
+    apptype=FlipperAppType.EXTERNAL,
+    entry_point="eslpwn_app_main",
+    requires=["gui", "notification", "dialogs", "storage"],
+    stack_size=4 * 1024,
+    fap_icon="tagtinker_10px.png",
+    fap_category="Infrared",
+    fap_author="i12bp8",
+    fap_description="Educational ESL study tool for owned hardware",
+    fap_version="1.1",
+    sources=[
+        "tagtinker_app.c",
+        "scenes/*.c",
+        "protocol/*.c",
+        "ir/*.c",
+        "views/*.c",
+    ],
+)
