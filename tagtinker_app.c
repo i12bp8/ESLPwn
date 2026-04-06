@@ -29,6 +29,87 @@ static bool custom_event_cb(void* ctx, uint32_t event) {
 
 extern const SceneManagerHandlers tagtinker_scene_handlers;
 
+void tagtinker_targets_load(TagTinkerApp* app) {
+    app->target_count = 0;
+
+    Storage* storage = furi_record_open(RECORD_STORAGE);
+    File* file = storage_file_alloc(storage);
+
+    if(storage_file_open(file, APP_DATA_PATH("targets.txt"), FSAM_READ, FSOM_OPEN_EXISTING)) {
+        char buf[768];
+        uint16_t read = storage_file_read(file, buf, sizeof(buf) - 1);
+        buf[read] = '\0';
+        storage_file_close(file);
+
+        char* line = buf;
+        while(line && *line && app->target_count < TAGTINKER_MAX_TARGETS) {
+            char* nl = strchr(line, '\n');
+            if(nl) *nl = '\0';
+
+            if(*line) {
+                char* sep = strchr(line, '|');
+                if(sep) *sep = '\0';
+
+                if(tagtinker_barcode_to_plid(line, app->targets[app->target_count].plid)) {
+                    TagTinkerTarget* target = &app->targets[app->target_count];
+                    strncpy(target->barcode, line, TAGTINKER_BC_LEN);
+                    target->barcode[TAGTINKER_BC_LEN] = '\0';
+                    memset(target->name, 0, sizeof(target->name));
+
+                    if(sep && *(sep + 1)) {
+                        strncpy(target->name, sep + 1, TAGTINKER_TARGET_NAME_LEN);
+                        target->name[TAGTINKER_TARGET_NAME_LEN] = '\0';
+                    } else {
+                        char suffix[7];
+                        memcpy(suffix, target->barcode + TAGTINKER_BC_LEN - 6, 6);
+                        suffix[6] = '\0';
+                        snprintf(target->name, TAGTINKER_TARGET_NAME_LEN + 1, "Tag ...%s", suffix);
+                    }
+
+                    app->target_count++;
+                }
+            }
+
+            line = nl ? nl + 1 : NULL;
+        }
+    }
+
+    storage_file_free(file);
+    furi_record_close(RECORD_STORAGE);
+}
+
+bool tagtinker_targets_save(const TagTinkerApp* app) {
+    Storage* storage = furi_record_open(RECORD_STORAGE);
+    storage_common_mkdir(storage, APP_DATA_PATH(""));
+
+    File* file = storage_file_alloc(storage);
+    bool ok = false;
+
+    if(storage_file_open(file, APP_DATA_PATH("targets.txt"), FSAM_WRITE, FSOM_CREATE_ALWAYS)) {
+        ok = true;
+        for(uint8_t i = 0; i < app->target_count; i++) {
+            char line[64];
+            int len = snprintf(
+                line,
+                sizeof(line),
+                "%s|%s\n",
+                app->targets[i].barcode,
+                app->targets[i].name);
+
+            if(len <= 0 || !storage_file_write(file, line, (uint16_t)len)) {
+                ok = false;
+                break;
+            }
+        }
+
+        storage_file_close(file);
+    }
+
+    storage_file_free(file);
+    furi_record_close(RECORD_STORAGE);
+    return ok;
+}
+
 static TagTinkerApp* app_alloc(void) {
     TagTinkerApp* app = malloc(sizeof(TagTinkerApp));
     memset(app, 0, sizeof(TagTinkerApp));
@@ -46,6 +127,7 @@ static TagTinkerApp* app_alloc(void) {
     app->invert_text = false;
     strcpy(app->text_input_buf, "TagTinker");
     app->selected_target = -1;
+    tagtinker_targets_load(app);
 
     /* Scene manager */
     app->scene_manager = scene_manager_alloc(&tagtinker_scene_handlers, app);

@@ -64,6 +64,10 @@ bool tagtinker_scene_barcode_input_on_event(void* ctx, SceneManagerEvent event) 
         snprintf(t->name, TAGTINKER_TARGET_NAME_LEN, "Tag ...%s", suffix);
         app->selected_target = app->target_count;
         app->target_count++;
+
+        if(!tagtinker_targets_save(app)) {
+            FURI_LOG_W(TAGTINKER_TAG, "Failed to save targets");
+        }
     }
 
     uint32_t target_scene = scene_manager_get_scene_state(

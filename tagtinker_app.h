@@ -155,3 +155,6 @@ typedef enum {
     TagTinkerTargetPushImage,
     TagTinkerTargetPingFlash,
 } TagTinkerTargetActionItem;
+
+void tagtinker_targets_load(TagTinkerApp* app);
+bool tagtinker_targets_save(const TagTinkerApp* app);
