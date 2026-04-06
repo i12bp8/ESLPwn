@@ -1,6 +1,6 @@
 /*
- * Barcode Input — custom numlock digit selector
- * Auto-prefixes 'N', user enters 16 digits with arrow keys.
+ * Barcode Input — custom barcode selector
+ * User enters 1 letter + 16 digits with arrow keys.
  */
 
 #include "../tagtinker_app.h"
@@ -33,7 +33,7 @@ bool tagtinker_scene_barcode_input_on_event(void* ctx, SceneManagerEvent event) 
         popup_reset(app->popup);
         popup_set_header(app->popup, "Invalid Barcode", 64, 20, AlignCenter, AlignCenter);
         popup_set_text(app->popup,
-            "Format: N + 4 + 14 digits",
+            "Format: Letter + 16 digits",
             64, 40, AlignCenter, AlignCenter);
         popup_set_timeout(app->popup, 2000);
         popup_enable_timeout(app->popup);
@@ -62,12 +62,17 @@ bool tagtinker_scene_barcode_input_on_event(void* ctx, SceneManagerEvent event) 
         memcpy(suffix, app->barcode + TAGTINKER_BC_LEN - 6, 6);
         suffix[6] = '\0';
         snprintf(t->name, TAGTINKER_TARGET_NAME_LEN, "Tag ...%s", suffix);
+        tagtinker_target_refresh_profile(t);
         app->selected_target = app->target_count;
         app->target_count++;
 
         if(!tagtinker_targets_save(app)) {
             FURI_LOG_W(TAGTINKER_TAG, "Failed to save targets");
         }
+    }
+
+    if(app->selected_target >= 0) {
+        tagtinker_select_target(app, (uint8_t)app->selected_target);
     }
 
     uint32_t target_scene = scene_manager_get_scene_state(

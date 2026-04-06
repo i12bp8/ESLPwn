@@ -1,8 +1,8 @@
 /*
  * TagTinker - number lock barcode input view
  *
- * Custom view for entering a 16-digit ESL barcode.
- * Format: N + 16 digits (auto-prefixed 'N').
+ * Custom view for entering a 17-character ESL barcode.
+ * Format: Letter + 16 digits.
  *
  * Controls:
  *   UP/DOWN   - cycle digit 0-9

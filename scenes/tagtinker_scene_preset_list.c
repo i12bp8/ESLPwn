@@ -6,9 +6,6 @@
  */
 
 #include "../tagtinker_app.h"
-#include "../views/tagtinker_font.h"
-#include "../protocol/tagtinker_proto.h"
-
 #define EVT_ADD_NEW  200
 #define EVT_PRESET   0
 
@@ -116,26 +113,8 @@ bool tagtinker_scene_preset_list_on_event(void* ctx, SceneManagerEvent event) {
         FURI_LOG_I(TAGTINKER_TAG, "Preset %lu: %ux%u \"%s\"",
             idx, app->esl_width, app->esl_height, app->text_input_buf);
 
-        /* Render + transmit */
-        size_t num_pixels = (size_t)app->esl_width * app->esl_height;
-        uint8_t* pixels = malloc(num_pixels);
-        if(!pixels) return false;
-
-        if(app->invert_text) {
-            render_text_ex(pixels, app->esl_width, app->esl_height,
-                app->text_input_buf, 0, 1);
-        } else {
-            render_text(pixels, app->esl_width, app->esl_height,
-                app->text_input_buf);
-        }
-
         TagTinkerTarget* target = &app->targets[app->selected_target];
-        tagtinker_build_image_sequence(
-            app, target->plid, pixels,
-            app->esl_width, app->esl_height, app->img_page,
-            0, 0, 250);
-
-        free(pixels);
+        tagtinker_prepare_text_tx(app, target->plid);
         app->tx_spam = false;
         scene_manager_next_scene(app->scene_manager, TagTinkerSceneTransmit);
         return true;

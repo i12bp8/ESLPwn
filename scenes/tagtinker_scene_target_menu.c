@@ -50,10 +50,7 @@ bool tagtinker_scene_target_menu_on_event(void* ctx, SceneManagerEvent event) {
 
     /* Selected a saved target */
     if(event.event < app->target_count) {
-        app->selected_target = (int8_t)event.event;
-        memcpy(app->barcode, app->targets[event.event].barcode, TAGTINKER_BC_LEN + 1);
-        memcpy(app->plid, app->targets[event.event].plid, 4);
-        app->barcode_valid = true;
+        tagtinker_select_target(app, (uint8_t)event.event);
         scene_manager_next_scene(app->scene_manager, TagTinkerSceneTargetActions);
         return true;
     }

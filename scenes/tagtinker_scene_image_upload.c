@@ -47,43 +47,31 @@ void tagtinker_scene_image_upload_on_enter(void* ctx) {
                     if(bpp == 1) {
                         size_t w = (size_t)bmp_w;
                         size_t h = (size_t)bmp_h;
-                        uint8_t* img_data = malloc(w * h);
-                        memset(img_data, 0, w * h);
-
-                        uint32_t row_stride = ((bmp_w + 31) / 32) * 4;
-                        uint8_t* row_buf = malloc(row_stride);
-
-                        storage_file_seek(file, data_offset, true);
-
-                        for(int32_t y = 0; y < bmp_h; y++) {
-                            /* target_y is the logical row index 0..h-1 */
-                            int32_t target_y = top_down ? y : (bmp_h - 1 - y);
-                            storage_file_read(file, row_buf, row_stride);
-                            
-                            if(target_y >= 0 && target_y < (int32_t)h) {
-                                for(int32_t x = 0; x < bmp_w && x < (int32_t)w; x++) {
-                                    uint8_t byte = row_buf[x / 8];
-                                    uint8_t bit = (byte >> (7 - (x % 8))) & 1;
-                                    img_data[target_y * w + x] = (bit == 0) ? 0 : 1; 
-                                }
-                            }
-                        }
-                        free(row_buf);
-
-                        /* Force color-clear and use BMP's own dimensions */
-                        bool prev_clr = app->color_clear;
-                        app->color_clear = true; 
-                        tagtinker_build_image_sequence(app, target->plid, img_data, (uint16_t)w, (uint16_t)h, 0, 0, 0, 250);
-                        app->color_clear = prev_clr;
-
-                        memcpy(app->frame_buf, app->frame_sequence[0], app->frame_lengths[0]);
-                        app->frame_len = app->frame_lengths[0];
-                        free(img_data);
-                        
-                        app->tx_spam = false;
-                        scene_manager_next_scene(app->scene_manager, TagTinkerSceneTransmit);
+                        UNUSED(data_offset);
+                        UNUSED(top_down);
+                        tagtinker_prepare_bmp_tx(
+                            app,
+                            target->plid,
+                            furi_string_get_cstr(file_path),
+                            (uint16_t)w,
+                            (uint16_t)h,
+                            app->img_page);
+                        scene_manager_next_scene(app->scene_manager, TagTinkerSceneImageOptions);
+                    } else if(bpp == 24 || bpp == 32) {
+                        size_t w = (size_t)bmp_w;
+                        size_t h = (size_t)bmp_h;
+                        UNUSED(data_offset);
+                        UNUSED(top_down);
+                        tagtinker_prepare_bmp_tx(
+                            app,
+                            target->plid,
+                            furi_string_get_cstr(file_path),
+                            (uint16_t)w,
+                            (uint16_t)h,
+                            app->img_page);
+                        scene_manager_next_scene(app->scene_manager, TagTinkerSceneImageOptions);
                     } else {
-                        show_error_dialog(app, "Must be 1-bit BMP");
+                        show_error_dialog(app, "Use 1/24/32-bit BMP");
                     }
                 } else {
                     show_error_dialog(app, "Invalid BMP magic");

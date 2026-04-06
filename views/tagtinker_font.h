@@ -116,6 +116,19 @@ static inline void set_pixel(uint8_t* buf, uint16_t w, uint16_t h, uint16_t x, u
     if(x < w && y < h) buf[y * w + x] = val;
 }
 
+static inline void set_region_pixel(
+    uint8_t* buf,
+    uint16_t region_w,
+    uint16_t region_h,
+    uint16_t x,
+    uint16_t global_y,
+    uint16_t region_y,
+    uint8_t val) {
+    if(x < region_w && global_y >= region_y && global_y < (uint16_t)(region_y + region_h)) {
+        buf[(global_y - region_y) * region_w + x] = val;
+    }
+}
+
 /*
  * Render text to fill the entire buffer.
  * bg_val/fg_val control polarity:
@@ -159,6 +172,54 @@ static inline void render_text_ex(uint8_t* buf, uint16_t w, uint16_t h,
                             uint16_t px = start_x + (i * (FONT_CHAR_W + 1) + gx) * scale + sx;
                             uint16_t py = start_y + gy * scale + sy;
                             set_pixel(buf, w, h, px, py, fg_val);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+static inline void render_text_region_ex(
+    uint8_t* buf,
+    uint16_t full_w,
+    uint16_t full_h,
+    uint16_t region_y,
+    uint16_t region_h,
+    const char* text,
+    uint8_t bg_val,
+    uint8_t fg_val) {
+    memset(buf, bg_val, full_w * region_h);
+
+    size_t len = strlen(text);
+    if(len == 0) return;
+
+    uint16_t scale_w = full_w / (len * (FONT_CHAR_W + 1));
+    uint16_t scale_h = full_h / FONT_CHAR_H;
+
+    if(scale_w < 1) scale_w = 1;
+    if(scale_h < 1) scale_h = 1;
+
+    uint16_t scale = (scale_w < scale_h) ? scale_w : scale_h;
+    uint16_t text_w = len * (FONT_CHAR_W + 1) * scale;
+    uint16_t text_h = FONT_CHAR_H * scale;
+    uint16_t start_x = (full_w - text_w) / 2;
+    uint16_t start_y = (full_h - text_h) / 2;
+
+    for(size_t i = 0; i < len; i++) {
+        char c = text[i];
+        if(c < 32 || c > 126) c = '?';
+        uint8_t glyph_idx = c - 32;
+
+        for(uint8_t gx = 0; gx < FONT_CHAR_W; gx++) {
+            uint8_t col = font_5x7[glyph_idx][gx];
+            for(uint8_t gy = 0; gy < FONT_CHAR_H; gy++) {
+                if(col & (1 << gy)) {
+                    for(uint16_t sx = 0; sx < scale; sx++) {
+                        for(uint16_t sy = 0; sy < scale; sy++) {
+                            uint16_t px = start_x + (i * (FONT_CHAR_W + 1) + gx) * scale + sx;
+                            uint16_t py = start_y + gy * scale + sy;
+                            set_region_pixel(buf, full_w, region_h, px, py, region_y, fg_val);
                         }
                     }
                 }

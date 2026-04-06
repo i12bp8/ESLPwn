@@ -17,6 +17,7 @@ void(*const tagtinker_scene_on_enter_handlers[])(void*) = {
     tagtinker_scene_preset_list_on_enter,
     tagtinker_scene_size_picker_on_enter,
     tagtinker_scene_image_upload_on_enter,
+    tagtinker_scene_image_options_on_enter,
     tagtinker_scene_transmit_on_enter,
     tagtinker_scene_about_on_enter,
 };
@@ -34,6 +35,7 @@ bool(*const tagtinker_scene_on_event_handlers[])(void*, SceneManagerEvent) = {
     tagtinker_scene_preset_list_on_event,
     tagtinker_scene_size_picker_on_event,
     tagtinker_scene_image_upload_on_event,
+    tagtinker_scene_image_options_on_event,
     tagtinker_scene_transmit_on_event,
     tagtinker_scene_about_on_event,
 };
@@ -51,6 +53,7 @@ void(*const tagtinker_scene_on_exit_handlers[])(void*) = {
     tagtinker_scene_preset_list_on_exit,
     tagtinker_scene_size_picker_on_exit,
     tagtinker_scene_image_upload_on_exit,
+    tagtinker_scene_image_options_on_exit,
     tagtinker_scene_transmit_on_exit,
     tagtinker_scene_about_on_exit,
 };

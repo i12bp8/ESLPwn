@@ -1,5 +1,5 @@
 /*
- * Size Picker — custom W/H (5px steps), mode, page, color, transmit
+ * Size Picker — exact native sizes plus a useful custom range.
  */
 
 #include "../tagtinker_app.h"
@@ -7,48 +7,105 @@
 #include "../protocol/tagtinker_proto.h"
 #include <storage/storage.h>
 
-/* Limits */
-#define MIN_W  48
-#define MAX_W  200
-#define STEP_W 8
-#define MIN_H  50
-#define MAX_H  90
-#define STEP_H 5
+static const uint16_t width_values[] = {
+    48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144, 152, 160, 168, 172,
+    176, 184, 192, 200, 208, 224, 240, 256, 264, 272, 288, 296, 304, 320, 400, 648, 800,
+};
 
-#define W_COUNT ((MAX_W - MIN_W) / STEP_W + 1)
-#define H_COUNT ((MAX_H - MIN_H) / STEP_H + 1)
+static const uint16_t height_values[] = {
+    50, 55, 60, 65, 70, 72, 75, 80, 85, 90, 96, 104, 112, 120, 128, 140, 152, 176, 192, 300, 480,
+};
+
+static const uint16_t coord_values[] = {
+    0,   8,   16,  24,  32,  40,  48,  56,  64,  72,  80,  88,  96,  104, 112, 120, 128,
+    136, 144, 152, 160, 168, 176, 184, 192, 200, 208, 216, 224, 232, 240, 248, 256, 264,
+    272, 280, 288, 296, 304, 312, 320, 328, 336, 344, 352, 360, 368, 376, 384, 392, 400,
+    408, 416, 424, 432, 440, 448, 456, 464, 472, 480, 488, 496, 504, 512, 520, 528, 536,
+    544, 552, 560, 568, 576, 584, 592, 600, 608, 616, 624, 632, 640, 648, 656, 664, 672,
+    680, 688, 696, 704, 712, 720, 728, 736, 744, 752, 760, 768, 776, 784, 792, 800,
+};
+
+static const char* compression_labels[] = {"Auto", "Raw", "RLE"};
+
+#define W_COUNT COUNT_OF(width_values)
+#define H_COUNT COUNT_OF(height_values)
+#define COORD_COUNT COUNT_OF(coord_values)
 
 /* Setting indices */
 enum {
     SettingWidth,
     SettingHeight,
     SettingPage,
-    SettingColor,
+    SettingPolarity,
     SettingMode,
+    SettingCompression,
+    SettingFrameRepeat,
+    SettingOffsetX,
+    SettingOffsetY,
     SettingSave,
     SettingTransmit,
 };
 
 /* ── Callbacks ── */
 
+static void clamp_current_offsets(TagTinkerApp* app);
+
 static void width_changed(VariableItem* item) {
     TagTinkerApp* app = variable_item_get_context(item);
     uint8_t idx = variable_item_get_current_value_index(item);
-    app->esl_width = MIN_W + idx * STEP_W;
+    if(idx >= W_COUNT) idx = W_COUNT - 1;
+    app->esl_width = width_values[idx];
 
     char buf[8];
     snprintf(buf, sizeof(buf), "%u", app->esl_width);
     variable_item_set_current_value_text(item, buf);
+    clamp_current_offsets(app);
 }
 
 static void height_changed(VariableItem* item) {
     TagTinkerApp* app = variable_item_get_context(item);
     uint8_t idx = variable_item_get_current_value_index(item);
-    app->esl_height = MIN_H + idx * STEP_H;
+    if(idx >= H_COUNT) idx = H_COUNT - 1;
+    app->esl_height = height_values[idx];
 
     char buf[8];
     snprintf(buf, sizeof(buf), "%u", app->esl_height);
     variable_item_set_current_value_text(item, buf);
+    clamp_current_offsets(app);
+}
+
+static uint8_t nearest_value_index(const uint16_t* values, uint8_t count, uint16_t target) {
+    uint8_t best_idx = 0;
+    uint16_t best_diff = UINT16_MAX;
+
+    for(uint8_t i = 0; i < count; i++) {
+        uint16_t value = values[i];
+        uint16_t diff = (value > target) ? (value - target) : (target - value);
+        if(diff < best_diff) {
+            best_diff = diff;
+            best_idx = i;
+        }
+    }
+
+    return best_idx;
+}
+
+static void clamp_current_offsets(TagTinkerApp* app) {
+    if(!app) return;
+    if(app->selected_target < 0 || app->selected_target >= app->target_count) return;
+
+    const TagTinkerTarget* target = &app->targets[app->selected_target];
+    if(!target->profile.known || !target->profile.width || !target->profile.height) return;
+
+    uint16_t max_x = (app->esl_width < target->profile.width) ?
+                         (uint16_t)(target->profile.width - app->esl_width) :
+                         0U;
+    uint16_t max_y = (app->esl_height < target->profile.height) ?
+                         (uint16_t)(target->profile.height - app->esl_height) :
+                         0U;
+
+    if(app->draw_x > max_x) app->draw_x = max_x;
+    if(app->draw_y > max_y) app->draw_y = max_y;
 }
 
 static void page_changed(VariableItem* item) {
@@ -60,7 +117,7 @@ static void page_changed(VariableItem* item) {
     variable_item_set_current_value_text(item, buf);
 }
 
-static void color_changed(VariableItem* item) {
+static void polarity_changed(VariableItem* item) {
     TagTinkerApp* app = variable_item_get_context(item);
     app->invert_text = (variable_item_get_current_value_index(item) == 1);
 
@@ -70,10 +127,55 @@ static void color_changed(VariableItem* item) {
 
 static void mode_changed(VariableItem* item) {
     TagTinkerApp* app = variable_item_get_context(item);
+    TagTinkerTarget* target = (app->selected_target >= 0) ? &app->targets[app->selected_target] : NULL;
+    bool accent = tagtinker_target_supports_accent(target);
     app->color_clear = (variable_item_get_current_value_index(item) == 1);
 
     variable_item_set_current_value_text(
-        item, app->color_clear ? "BW+Clr" : "BW Fast");
+        item,
+        accent ? (app->color_clear ? "Accent" : "Black")
+               : (app->color_clear ? "Dual Plane" : "Mono Fast"));
+}
+
+static void compression_changed(VariableItem* item) {
+    TagTinkerApp* app = variable_item_get_context(item);
+    uint8_t index = variable_item_get_current_value_index(item);
+    if(index > TagTinkerCompressionRle) index = TagTinkerCompressionRle;
+    app->compression_mode = (TagTinkerCompressionMode)index;
+    variable_item_set_current_value_text(item, compression_labels[index]);
+}
+
+static void frame_repeat_changed(VariableItem* item) {
+    TagTinkerApp* app = variable_item_get_context(item);
+    app->data_frame_repeats = variable_item_get_current_value_index(item) + 1U;
+
+    char buf[4];
+    snprintf(buf, sizeof(buf), "%u", app->data_frame_repeats);
+    variable_item_set_current_value_text(item, buf);
+}
+
+static void offset_x_changed(VariableItem* item) {
+    TagTinkerApp* app = variable_item_get_context(item);
+    uint8_t index = variable_item_get_current_value_index(item);
+    if(index >= COORD_COUNT) index = COORD_COUNT - 1U;
+    app->draw_x = coord_values[index];
+    clamp_current_offsets(app);
+
+    char buf[8];
+    snprintf(buf, sizeof(buf), "%u", app->draw_x);
+    variable_item_set_current_value_text(item, buf);
+}
+
+static void offset_y_changed(VariableItem* item) {
+    TagTinkerApp* app = variable_item_get_context(item);
+    uint8_t index = variable_item_get_current_value_index(item);
+    if(index >= COORD_COUNT) index = COORD_COUNT - 1U;
+    app->draw_y = coord_values[index];
+    clamp_current_offsets(app);
+
+    char buf[8];
+    snprintf(buf, sizeof(buf), "%u", app->draw_y);
+    variable_item_set_current_value_text(item, buf);
 }
 
 static void save_presets_to_sd(TagTinkerApp* app) {
@@ -128,24 +230,8 @@ static void setting_cb(void* ctx, uint32_t index) {
         app->esl_width, app->esl_height, app->img_page,
         app->invert_text, app->color_clear);
 
-    size_t num_pixels = (size_t)app->esl_width * app->esl_height;
-    uint8_t* pixels = malloc(num_pixels);
-    if(!pixels) return;
-
-    if(app->invert_text) {
-        render_text_ex(pixels, app->esl_width, app->esl_height, app->text_input_buf, 0, 1);
-    } else {
-        render_text(pixels, app->esl_width, app->esl_height, app->text_input_buf);
-    }
-
     TagTinkerTarget* target = &app->targets[app->selected_target];
-
-    tagtinker_build_image_sequence(
-        app, target->plid, pixels,
-        app->esl_width, app->esl_height, app->img_page,
-        0, 0, 250);
-
-    free(pixels);
+    tagtinker_prepare_text_tx(app, target->plid);
     app->tx_spam = false;
     scene_manager_next_scene(app->scene_manager, TagTinkerSceneTransmit);
 }
@@ -157,20 +243,11 @@ void tagtinker_scene_size_picker_on_enter(void* ctx) {
 
     variable_item_list_reset(app->var_item_list);
 
-    /* Clamp to valid grid positions */
-    if(app->esl_width < MIN_W) app->esl_width = MIN_W;
-    if(app->esl_width > MAX_W) app->esl_width = MAX_W;
-    if(app->esl_height < MIN_H) app->esl_height = MIN_H;
-    if(app->esl_height > MAX_H) app->esl_height = MAX_H;
-
-    /* Snap to nearest step */
-    uint8_t w_idx = (app->esl_width - MIN_W + STEP_W / 2) / STEP_W;
-    if(w_idx >= W_COUNT) w_idx = W_COUNT - 1;
-    app->esl_width = MIN_W + w_idx * STEP_W;
-
-    uint8_t h_idx = (app->esl_height - MIN_H + STEP_H / 2) / STEP_H;
-    if(h_idx >= H_COUNT) h_idx = H_COUNT - 1;
-    app->esl_height = MIN_H + h_idx * STEP_H;
+    uint8_t w_idx = nearest_value_index(width_values, W_COUNT, app->esl_width);
+    uint8_t h_idx = nearest_value_index(height_values, H_COUNT, app->esl_height);
+    app->esl_width = width_values[w_idx];
+    app->esl_height = height_values[h_idx];
+    clamp_current_offsets(app);
 
     /* Width */
     VariableItem* item_w = variable_item_list_add(
@@ -202,19 +279,57 @@ void tagtinker_scene_size_picker_on_enter(void* ctx) {
         variable_item_set_current_value_text(item_pg, buf);
     }
 
-    /* Color (text polarity) */
+    /* Polarity */
     VariableItem* item_col = variable_item_list_add(
-        app->var_item_list, "Color", 2, color_changed, app);
+        app->var_item_list, "Polarity", 2, polarity_changed, app);
     variable_item_set_current_value_index(item_col, app->invert_text ? 1 : 0);
     variable_item_set_current_value_text(
         item_col, app->invert_text ? "W on B" : "B on W");
 
-    /* Mode (BW Fast vs BW+Color clear) */
+    /* Text ink / plane mode */
+    TagTinkerTarget* target = (app->selected_target >= 0) ? &app->targets[app->selected_target] : NULL;
+    bool accent = tagtinker_target_supports_accent(target);
     VariableItem* item_mode = variable_item_list_add(
-        app->var_item_list, "Mode", 2, mode_changed, app);
+        app->var_item_list, accent ? "Ink" : "Mode", 2, mode_changed, app);
     variable_item_set_current_value_index(item_mode, app->color_clear ? 1 : 0);
     variable_item_set_current_value_text(
-        item_mode, app->color_clear ? "BW+Clr" : "BW Fast");
+        item_mode,
+        accent ? (app->color_clear ? "Accent" : "Black")
+               : (app->color_clear ? "Dual Plane" : "Mono Fast"));
+
+    VariableItem* item_comp = variable_item_list_add(
+        app->var_item_list, "Compression", 3, compression_changed, app);
+    variable_item_set_current_value_index(item_comp, app->compression_mode);
+    variable_item_set_current_value_text(item_comp, compression_labels[app->compression_mode]);
+
+    VariableItem* item_rep = variable_item_list_add(
+        app->var_item_list, "Frame Repeat", 5, frame_repeat_changed, app);
+    variable_item_set_current_value_index(item_rep, app->data_frame_repeats - 1U);
+    {
+        char buf[4];
+        snprintf(buf, sizeof(buf), "%u", app->data_frame_repeats);
+        variable_item_set_current_value_text(item_rep, buf);
+    }
+
+    VariableItem* item_x = variable_item_list_add(
+        app->var_item_list, "Offset X", COORD_COUNT, offset_x_changed, app);
+    variable_item_set_current_value_index(
+        item_x, nearest_value_index(coord_values, COORD_COUNT, app->draw_x));
+    {
+        char buf[8];
+        snprintf(buf, sizeof(buf), "%u", app->draw_x);
+        variable_item_set_current_value_text(item_x, buf);
+    }
+
+    VariableItem* item_y = variable_item_list_add(
+        app->var_item_list, "Offset Y", COORD_COUNT, offset_y_changed, app);
+    variable_item_set_current_value_index(
+        item_y, nearest_value_index(coord_values, COORD_COUNT, app->draw_y));
+    {
+        char buf[8];
+        snprintf(buf, sizeof(buf), "%u", app->draw_y);
+        variable_item_set_current_value_text(item_y, buf);
+    }
 
     /* Save preset button */
     variable_item_list_add(app->var_item_list, "[*] Save Preset", 0, NULL, app);

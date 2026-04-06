@@ -3,22 +3,64 @@
  */
 
 #include "../tagtinker_app.h"
+#include <dialogs/dialogs.h>
 
 static void target_actions_cb(void* ctx, uint32_t index) {
     TagTinkerApp* app = ctx;
     view_dispatcher_send_custom_event(app->view_dispatcher, index);
 }
 
+static void show_target_details(TagTinkerApp* app, const TagTinkerTarget* target) {
+    if(!target) return;
+
+    char body[160];
+    if(target->profile.known && target->profile.width && target->profile.height) {
+        snprintf(
+            body,
+            sizeof(body),
+            "Type: %u\nKind: %s\nSize: %ux%u\nColor: %s",
+            target->profile.type_code,
+            tagtinker_profile_kind_label(target->profile.kind),
+            target->profile.width,
+            target->profile.height,
+            tagtinker_profile_color_label(target->profile.color));
+    } else if(target->profile.known) {
+        snprintf(
+            body,
+            sizeof(body),
+            "Type: %u\nKind: %s\nColor: %s",
+            target->profile.type_code,
+            tagtinker_profile_kind_label(target->profile.kind),
+            tagtinker_profile_color_label(target->profile.color));
+    } else {
+        snprintf(body, sizeof(body), "Type: %u\nProfile: Unknown", target->profile.type_code);
+    }
+
+    DialogMessage* message = dialog_message_alloc();
+    dialog_message_set_header(message, "Tag Details", 64, 2, AlignCenter, AlignTop);
+    dialog_message_set_text(message, body, 64, 18, AlignCenter, AlignTop);
+    dialog_message_set_buttons(message, "OK", NULL, NULL);
+    dialog_message_show(app->dialogs, message);
+    dialog_message_free(message);
+}
+
 void tagtinker_scene_target_actions_on_enter(void* ctx) {
     TagTinkerApp* app = ctx;
+    TagTinkerTarget* target = (app->selected_target >= 0) ? &app->targets[app->selected_target] : NULL;
+    bool allow_graphics = tagtinker_target_supports_graphics(target);
 
     submenu_reset(app->submenu);
 
     char header[24];
     snprintf(header, sizeof(header), "Tag: %.8s...", app->barcode);
     submenu_set_header(app->submenu, header);
-    submenu_add_item(app->submenu, "Show Text Preset",    TagTinkerTargetPushText,      target_actions_cb, app);
-    submenu_add_item(app->submenu, "Show Custom Image",   TagTinkerTargetPushImage,     target_actions_cb, app);
+    submenu_add_item(app->submenu, "Tag Details", TagTinkerTargetDetails, target_actions_cb, app);
+
+    if(allow_graphics) {
+        submenu_add_item(app->submenu, "Show Text Preset", TagTinkerTargetPushText, target_actions_cb, app);
+        submenu_add_item(app->submenu, "Show Custom Image", TagTinkerTargetPushImage, target_actions_cb, app);
+    }
+
     submenu_add_item(app->submenu, "LED Response Check",  TagTinkerTargetPingFlash,     target_actions_cb, app);
 
     view_dispatcher_switch_to_view(app->view_dispatcher, TagTinkerViewSubmenu);
@@ -29,10 +71,15 @@ bool tagtinker_scene_target_actions_on_event(void* ctx, SceneManagerEvent event)
     if(event.type != SceneManagerEventTypeCustom) return false;
 
     switch(event.event) {
+    case TagTinkerTargetDetails:
+        show_target_details(app, &app->targets[app->selected_target]);
+        return true;
     case TagTinkerTargetPushText:
+        if(!tagtinker_target_supports_graphics(&app->targets[app->selected_target])) return true;
         scene_manager_next_scene(app->scene_manager, TagTinkerScenePresetList);
         return true;
     case TagTinkerTargetPushImage:
+        if(!tagtinker_target_supports_graphics(&app->targets[app->selected_target])) return true;
         scene_manager_next_scene(app->scene_manager, TagTinkerSceneImageUpload);
         return true;
     case TagTinkerTargetPingFlash:

@@ -1,7 +1,7 @@
 /*
  * TagTinker — Number Lock Barcode Input
  *
- * Clean centered digit entry: N + 16 digits in groups of 4.
+ * Clean centered barcode entry: 1 letter + 16 digits in groups of 4.
  * UP/DOWN cycle, LEFT/RIGHT move, OK confirm, BACK cancel.
  */
 
@@ -17,9 +17,14 @@
 #define PREFIX_W    10
 
 typedef struct {
+    char prefix;
     uint8_t digits[NUM_DIGITS];
     uint8_t cursor;
 } NumlockModel;
+
+static uint8_t prefix_x(void) {
+    return 4;
+}
 
 static uint8_t digit_x(uint8_t i) {
     uint8_t groups = i / GROUP_SIZE;
@@ -48,16 +53,34 @@ static void numlock_draw(Canvas* canvas, void* model_v) {
 
     const uint8_t baseline = 36;
     canvas_set_font(canvas, FontPrimary);
-    
-    /* Fixed 'N' Prefix */
-    canvas_draw_str(canvas, 4, baseline, "N");
+
+    /* Editable letter prefix */
+    char prefix[2] = {m->prefix, '\0'};
+    if(m->cursor == 0) {
+        uint8_t x = prefix_x();
+        canvas_draw_box(canvas, x - 1, frame_y + 3, CHAR_W + 2, frame_h - 6);
+        canvas_set_color(canvas, ColorWhite);
+        canvas_draw_str(canvas, x, baseline, prefix);
+        canvas_set_color(canvas, ColorBlack);
+
+        uint8_t cx = x + CHAR_W / 2 - 1;
+        canvas_draw_line(canvas, cx, frame_y - 4, cx - 2, frame_y - 2);
+        canvas_draw_line(canvas, cx, frame_y - 4, cx + 2, frame_y - 2);
+        canvas_draw_line(canvas, cx, frame_y - 4, cx, frame_y - 1);
+
+        canvas_draw_line(canvas, cx, frame_y + frame_h + 3, cx - 2, frame_y + frame_h + 1);
+        canvas_draw_line(canvas, cx, frame_y + frame_h + 3, cx + 2, frame_y + frame_h + 1);
+        canvas_draw_line(canvas, cx, frame_y + frame_h + 3, cx, frame_y + frame_h);
+    } else {
+        canvas_draw_str(canvas, prefix_x(), baseline, prefix);
+    }
 
     /* Iterating Digits */
     for(uint8_t i = 0; i < NUM_DIGITS; i++) {
         uint8_t x = digit_x(i);
         char ch[2] = {'0' + m->digits[i], '\0'};
 
-        if(i == m->cursor) {
+        if((i + 1) == m->cursor) {
             /* Selected digit bounding block */
             canvas_draw_box(canvas, x - 1, frame_y + 3, CHAR_W + 2, frame_h - 6);
             canvas_set_color(canvas, ColorWhite);
@@ -109,11 +132,21 @@ static bool numlock_input(InputEvent* input, void* ctx) {
         {
             switch(input->key) {
             case InputKeyUp:
-                m->digits[m->cursor] = (m->digits[m->cursor] + 1) % 10;
+                if(m->cursor == 0) {
+                    m->prefix = (m->prefix == 'Z') ? 'A' : (m->prefix + 1);
+                } else {
+                    uint8_t digit_idx = m->cursor - 1;
+                    m->digits[digit_idx] = (m->digits[digit_idx] + 1) % 10;
+                }
                 consumed = true;
                 break;
             case InputKeyDown:
-                m->digits[m->cursor] = (m->digits[m->cursor] + 9) % 10;
+                if(m->cursor == 0) {
+                    m->prefix = (m->prefix == 'A') ? 'Z' : (m->prefix - 1);
+                } else {
+                    uint8_t digit_idx = m->cursor - 1;
+                    m->digits[digit_idx] = (m->digits[digit_idx] + 9) % 10;
+                }
                 consumed = true;
                 break;
             case InputKeyLeft:
@@ -121,12 +154,12 @@ static bool numlock_input(InputEvent* input, void* ctx) {
                 consumed = true;
                 break;
             case InputKeyRight:
-                if(m->cursor < NUM_DIGITS - 1) m->cursor++;
+                if(m->cursor < NUM_DIGITS) m->cursor++;
                 consumed = true;
                 break;
             case InputKeyOk: {
                 char barcode[18];
-                barcode[0] = 'N';
+                barcode[0] = m->prefix;
                 for(uint8_t i = 0; i < NUM_DIGITS; i++)
                     barcode[1 + i] = '0' + m->digits[i];
                 barcode[17] = '\0';
@@ -158,6 +191,7 @@ NumlockInput* numlock_input_alloc(void) {
         numlock->view,
         NumlockModel * m,
         {
+            m->prefix = 'N';
             memset(m->digits, 0, NUM_DIGITS);
             m->digits[0] = 4;
             m->cursor = 1;
@@ -186,6 +220,7 @@ void numlock_input_reset(NumlockInput* numlock) {
         numlock->view,
         NumlockModel * m,
         {
+            m->prefix = 'N';
             memset(m->digits, 0, NUM_DIGITS);
             m->digits[0] = 4;
             m->cursor = 1;

@@ -19,6 +19,7 @@ typedef enum {
     TagTinkerScenePresetList,
     TagTinkerSceneSizePicker,
     TagTinkerSceneImageUpload,
+    TagTinkerSceneImageOptions,
     TagTinkerSceneTransmit,
     TagTinkerSceneAbout,
     TagTinkerSceneCount,
@@ -72,6 +73,10 @@ void tagtinker_scene_preset_list_on_exit(void* ctx);
 void tagtinker_scene_image_upload_on_enter(void* ctx);
 bool tagtinker_scene_image_upload_on_event(void* ctx, SceneManagerEvent event);
 void tagtinker_scene_image_upload_on_exit(void* ctx);
+
+void tagtinker_scene_image_options_on_enter(void* ctx);
+bool tagtinker_scene_image_options_on_event(void* ctx, SceneManagerEvent event);
+void tagtinker_scene_image_options_on_exit(void* ctx);
 
 void tagtinker_scene_transmit_on_enter(void* ctx);
 bool tagtinker_scene_transmit_on_event(void* ctx, SceneManagerEvent event);

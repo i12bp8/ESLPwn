@@ -33,6 +33,7 @@
 #define TAGTINKER_TARGET_NAME_LEN 16
 #define TAGTINKER_MAX_PRESETS 6
 #define TAGTINKER_PRESET_TEXT_LEN 32
+#define TAGTINKER_IMAGE_PATH_LEN 255
 
 /* Views */
 typedef enum {
@@ -53,7 +54,30 @@ typedef struct {
     char name[TAGTINKER_TARGET_NAME_LEN + 1];
     char barcode[TAGTINKER_BC_LEN + 1];
     uint8_t plid[4];
+    TagTinkerTagProfile profile;
 } TagTinkerTarget;
+
+typedef enum {
+    TagTinkerTxModeDirect = 0,
+    TagTinkerTxModeTextImage,
+    TagTinkerTxModeBmpImage,
+} TagTinkerTxMode;
+
+typedef enum {
+    TagTinkerSignalPP4 = 0,
+    TagTinkerSignalPP16,
+} TagTinkerSignalMode;
+
+typedef struct {
+    TagTinkerTxMode mode;
+    uint8_t plid[4];
+    uint8_t page;
+    uint16_t width;
+    uint16_t height;
+    uint16_t pos_x;
+    uint16_t pos_y;
+    char image_path[TAGTINKER_IMAGE_PATH_LEN + 1];
+} TagTinkerImageTxJob;
 
 struct TagTinkerApp {
     /* GUI */
@@ -90,6 +114,9 @@ struct TagTinkerApp {
     bool forever;
     bool tx_spam;
     bool show_startup_warning;
+    TagTinkerSignalMode signal_mode;
+    TagTinkerCompressionMode compression_mode;
+    uint8_t data_frame_repeats;
 
     /* Current target */
     char barcode[TAGTINKER_BC_LEN + 1];
@@ -133,11 +160,14 @@ struct TagTinkerApp {
 
     /* Image settings */
     uint8_t img_page;
-    uint16_t draw_width;
-    uint16_t draw_height;
+    uint16_t draw_x;
+    uint16_t draw_y;
 
     /* Indicates which mode triggered raw cmd (0=broadcast, 1=targeted) */
     uint8_t raw_mode;
+
+    /* Chunked image/text TX */
+    TagTinkerImageTxJob image_tx_job;
 };
 
 /* Main menu items */
@@ -157,6 +187,7 @@ typedef enum {
 
 /* Target action items */
 typedef enum {
+    TagTinkerTargetDetails,
     TagTinkerTargetPushText,
     TagTinkerTargetPushImage,
     TagTinkerTargetPingFlash,
@@ -166,3 +197,19 @@ void tagtinker_settings_load(TagTinkerApp* app);
 bool tagtinker_settings_save(const TagTinkerApp* app);
 void tagtinker_targets_load(TagTinkerApp* app);
 bool tagtinker_targets_save(const TagTinkerApp* app);
+void tagtinker_target_refresh_profile(TagTinkerTarget* target);
+void tagtinker_select_target(TagTinkerApp* app, uint8_t index);
+bool tagtinker_target_supports_graphics(const TagTinkerTarget* target);
+bool tagtinker_target_supports_accent(const TagTinkerTarget* target);
+void tagtinker_free_frame_sequence(TagTinkerApp* app);
+uint16_t tagtinker_pick_chunk_height(uint16_t width, bool color_clear);
+void tagtinker_prepare_text_tx(TagTinkerApp* app, const uint8_t plid[4]);
+void tagtinker_prepare_bmp_tx(
+    TagTinkerApp* app,
+    const uint8_t plid[4],
+    const char* image_path,
+    uint16_t width,
+    uint16_t height,
+    uint8_t page);
+const char* tagtinker_profile_kind_label(TagTinkerTagKind kind);
+const char* tagtinker_profile_color_label(TagTinkerTagColor color);

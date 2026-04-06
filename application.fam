@@ -20,6 +20,7 @@ App(
         "scenes/tagtinker_scene_broadcast.c",
         "scenes/tagtinker_scene_broadcast_menu.c",
         "scenes/tagtinker_scene_image_upload.c",
+        "scenes/tagtinker_scene_image_options.c",
         "scenes/tagtinker_scene_main_menu.c",
         "scenes/tagtinker_scene_preset_list.c",
         "scenes/tagtinker_scene_settings.c",

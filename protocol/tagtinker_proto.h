@@ -26,7 +26,72 @@ uint16_t tagtinker_crc16(const uint8_t* data, size_t len);
 
 /* ── Barcode / PLID ─────────────────────────────────────────── */
 
+typedef enum {
+    TagTinkerTagKindUnknown = 0,
+    TagTinkerTagKindDotMatrix,
+    TagTinkerTagKindSegment,
+} TagTinkerTagKind;
+
+typedef enum {
+    TagTinkerTagColorMono = 0,
+    TagTinkerTagColorRed,
+    TagTinkerTagColorYellow,
+} TagTinkerTagColor;
+
+typedef struct {
+    uint16_t type_code;
+    uint16_t width;
+    uint16_t height;
+    TagTinkerTagKind kind;
+    TagTinkerTagColor color;
+    bool known;
+} TagTinkerTagProfile;
+
 bool tagtinker_barcode_to_plid(const char* barcode, uint8_t plid[4]);
+bool tagtinker_barcode_to_type(const char* barcode, uint16_t* type_code);
+bool tagtinker_barcode_to_profile(const char* barcode, TagTinkerTagProfile* profile);
+
+typedef struct {
+    uint8_t* data;
+    size_t byte_count;
+    uint8_t comp_type;
+} TagTinkerImagePayload;
+
+typedef enum {
+    TagTinkerCompressionAuto = 0,
+    TagTinkerCompressionRaw,
+    TagTinkerCompressionRle,
+} TagTinkerCompressionMode;
+
+bool tagtinker_encode_image_payload(
+    const uint8_t* pixels,
+    uint16_t width,
+    uint16_t height,
+    bool color_clear,
+    TagTinkerCompressionMode mode,
+    TagTinkerImagePayload* payload);
+bool tagtinker_encode_planes_payload(
+    const uint8_t* primary_pixels,
+    const uint8_t* secondary_pixels,
+    size_t pixel_count,
+    TagTinkerCompressionMode mode,
+    TagTinkerImagePayload* payload);
+void tagtinker_free_image_payload(TagTinkerImagePayload* payload);
+size_t tagtinker_make_image_param_frame(
+    uint8_t* buf,
+    const uint8_t plid[4],
+    uint16_t byte_count,
+    uint8_t comp_type,
+    uint8_t page,
+    uint16_t width,
+    uint16_t height,
+    uint16_t pos_x,
+    uint16_t pos_y);
+size_t tagtinker_make_image_data_frame(
+    uint8_t* buf,
+    const uint8_t plid[4],
+    uint16_t frame_index,
+    const uint8_t data_bytes[20]);
 
 /* ── Frame builders ─────────────────────────────────────────── */
 
