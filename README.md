@@ -60,7 +60,14 @@ To understand the underlying protocol, signal structure, and history, please rea
 
 ## Disclaimer
 
-TagTinker is an independent project intended for educational research, security curiosity, and digital art on hardware you own. I do not condone using this software for illegal purposes, altering retail displays, or interfering with third-party infrastructure. Please use it responsibly.
+> [!CAUTION]
+> **STRICTLY PROHIBITED FOR ILLEGAL USE**
+> 
+> TagTinker is an independent project intended **strictly** for educational research, security curiosity, and displaying digital art on hardware that **you legally own**. 
+> 
+> Under no circumstances is this software allowed to be used for illegal activities. You are strictly prohibited from using TagTinker to alter retail displays, modify electronic shelf labels in stores, interfere with third-party infrastructure, or cause any form of vandalism or financial harm. 
+> 
+> The creator of TagTinker assumes absolutely no liability for any misuse of this software. By using this software, you agree to take full responsibility for your actions and use it responsibly and legally.
 
 ## License
 
