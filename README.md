@@ -10,6 +10,9 @@
   <img alt="Platform: Flipper Zero" src="https://img.shields.io/badge/Platform-Flipper%20Zero-black.svg">
 </p>
 
+
+<img alt="Demo Image"  src="[https://img.shields.io/badge/Platform-Flipper%20Zero-black.svg](https://raw.githubusercontent.com/i12bp8/TagTinker/refs/heads/main/tagtinkerdemo.jpg)">
+
 ## Overview
 
 TagTinker is a Flipper Zero app and Android Companion for exploring infrared electronic shelf-label (ESL) protocols. It allows you to transmit custom images and text to supported graphics tags.
