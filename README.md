@@ -11,7 +11,7 @@
 </p>
 
 
-<img alt="Demo Image"  src="[https://img.shields.io/badge/Platform-Flipper%20Zero-black.svg](https://raw.githubusercontent.com/i12bp8/TagTinker/refs/heads/main/tagtinkerdemo.jpg)">
+<img alt="Demo Image"  src="https://raw.githubusercontent.com/i12bp8/TagTinker/refs/heads/main/tagtinkerdemo.jpg">
 
 ## Overview
 
