@@ -22,7 +22,7 @@ void tagtinker_scene_target_menu_on_enter(void* ctx) {
 
     /* Add new target */
     submenu_add_item(app->submenu, "+ Scan NFC", TargetMenuScanNfc, target_menu_cb, app);
-    submenu_add_item(app->submenu, "+ New Target", TargetMenuAddNew, target_menu_cb, app);
+    submenu_add_item(app->submenu, "+ Type Barcode", TargetMenuAddNew, target_menu_cb, app);
 
     /* List saved targets */
     for(uint8_t i = 0; i < app->target_count; i++) {
